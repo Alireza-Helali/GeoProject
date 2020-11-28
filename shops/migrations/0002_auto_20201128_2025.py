@@ -5,15 +5,28 @@ from django.contrib.gis.geos import fromstr
 from pathlib import Path
 from django.db import migrations
 
+# from shops.models import Shop
+
 data_file_name = 'export.json'
 
 
 def load_data(apps, schema_editor):
-    shop = apps.get_model('shops', 'geoproject')
+    shop = apps.get_model('shops', 'Shop')
     jsonfile = Path(__file__).parents[2] / data_file_name
-    with open(str(data_file_name)) as datafile:
+    with open(str(jsonfile)) as datafile:
         objects = json.load(datafile)
-        for obj in objects:
+        for obj in objects['elements']:
+            try:
+                obj_type = obj['type']
+                if obj_type == "node":
+                    latitude = obj.get('lat', 0)
+                    longitude = obj.get('lon', 0)
+                    tag = obj['tags']
+                    name = tag.get('name', 'no_name')
+                    location = fromstr(f'POINT({longitude} {latitude})', srid=4326)
+                    shop.objects.create(name=name, location=location)
+            except KeyError:
+                pass
 
 
 class Migration(migrations.Migration):
@@ -22,4 +35,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(load_data)
     ]
